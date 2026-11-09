@@ -1,0 +1,1624 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SANYU SEASON — Administrator Panel</title>
+  <meta name="description" content="Clean, professional, mobile-responsive live sync administrator control center for SANYU SEASON." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <!-- React 18 & ReactDOM 18 UMD -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <!-- Babel Standalone for direct in-browser JSX execution on phone / GitHub Pages / Cloudflare Pages -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
+  <style>
+    :root {
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.6); }
+
+    /* Light Theme Palette Overrides */
+    html.light body {
+      background-color: #f8fafc !important;
+      color: #0f172a !important;
+    }
+    html.light .bg-slate-950 { background-color: #f1f5f9 !important; }
+    html.light .bg-slate-900 { background-color: #ffffff !important; }
+    html.light .bg-slate-800 { background-color: #e2e8f0 !important; }
+    html.light .border-slate-800, html.light .border-slate-700 { border-color: #cbd5e1 !important; }
+    html.light .text-white, html.light .text-slate-100, html.light .text-slate-200 { color: #0f172a !important; }
+    html.light .text-slate-300, html.light .text-slate-400 { color: #334155 !important; }
+    html.light .text-slate-500 { color: #64748b !important; }
+    html.light input, html.light select, html.light textarea {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
+    html.light input::placeholder, html.light textarea::placeholder {
+      color: #94a3b8 !important;
+    }
+  </style>
+<script src="/_aistudio-iframe.js?v=1f94f900"></script></head>
+<body class="bg-slate-950 text-slate-100 antialiased selection:bg-amber-500 selection:text-slate-950 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+    // --- Appwrite Configuration ---
+    const APPWRITE_CONFIG = {
+      endpoint: 'https://fra.cloud.appwrite.io/v1',
+      projectId: '6aed9b070037e2cd656f',
+      databaseId: '6aed9b19003aa07c5166',
+      apiKey: 'standard_a6d07d475b5b72267f15eb802a36ed759c7b9cf30c6413b84018f8840500825223a8589e18a9eae2a1607cfcb2840dfca9872f9c2dba1b85f11cfc9c4d549c1a7ec9fa179d8c63a771ab037afaaf7e999c6c17bad0eb31add1a4c9e4e9c0192016fb8bdefe7fbbd94638be13b2befe2fff91f9cc66071ff7cd7b0d380dc1681c',
+      tables: {
+        PROFILES: '6aed9b4e000058a0927d',
+        DEPOSITS: '6aeda5230028db3b9821',
+        WITHDRAWS: '6aeda824000112246a87',
+        COMMISSIONS: '6aedab2d00218e3a9831',
+        PAYMENT_RECIPIENTS: '6aeda798000bcf4c2e36',
+        APP_SETTINGS: '6aedadf50008f6c00e0d',
+        LEDGER: '6aeda35e000a97cee163',
+        DAILY_CLAIMS: '6aeda24a000eb5130707',
+        GIFTS: '6aeda3f0001d31017026',
+        PASSWORD_RESETS: '6aedae5b001f255a31bc',
+      }
+    };
+
+    const ADMIN_ACCOUNT = {
+      id: '6af083ae0023b02ea65b',
+      name: 'Administrator 1',
+      phone: '+256730072027',
+      role: 'super_admin'
+    };
+
+    // --- Format Helpers ---
+    function formatUGX(amount) {
+      if (amount === null || amount === undefined || isNaN(amount)) return '0 UGX';
+      return new Intl.NumberFormat('en-UG', {
+        style: 'decimal',
+        maximumFractionDigits: 0,
+      }).format(amount) + ' UGX';
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '—';
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      } catch {
+        return dateStr;
+      }
+    }
+
+    function formatTimeAgo(dateStr) {
+      if (!dateStr) return 'Never';
+      try {
+        const d = new Date(dateStr);
+        const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+        if (diffSec < 60) return 'Just now';
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return `${diffMin}m ago`;
+        const diffHours = Math.floor(diffMin / 60);
+        if (diffHours < 24) return `${diffHours}h ago`;
+        const diffDays = Math.floor(diffHours / 24);
+        return `${diffDays}d ago`;
+      } catch {
+        return dateStr;
+      }
+    }
+
+    function generateId() {
+      return 'rec_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    }
+
+    // --- Direct TablesDB API Client (No cookies required) ---
+    async function appwriteRequest(path, options = {}) {
+      const url = `${APPWRITE_CONFIG.endpoint}${path}`;
+      const headers = {
+        'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+        'X-Appwrite-Key': APPWRITE_CONFIG.apiKey,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      };
+      const res = await fetch(url, { ...options, headers });
+      if (!res.ok) {
+        const errText = await res.text();
+        let errMsg = `Appwrite request failed (${res.status})`;
+        try {
+          const parsed = JSON.parse(errText);
+          if (parsed.message) errMsg = parsed.message;
+        } catch {}
+        throw new Error(errMsg);
+      }
+      return res.json();
+    }
+
+    const db = {
+      async listRows(tableId) {
+        const path = `/tablesdb/${APPWRITE_CONFIG.databaseId}/tables/${tableId}/rows?queries[0]={"method":"limit","values":[100]}`;
+        const data = await appwriteRequest(path);
+        return data.rows || [];
+      },
+      async getRow(tableId, rowId) {
+        const path = `/tablesdb/${APPWRITE_CONFIG.databaseId}/tables/${tableId}/rows/${rowId}`;
+        return appwriteRequest(path);
+      },
+      async updateRow(tableId, rowId, data) {
+        const path = `/tablesdb/${APPWRITE_CONFIG.databaseId}/tables/${tableId}/rows/${rowId}`;
+        return appwriteRequest(path, {
+          method: 'PATCH',
+          body: JSON.stringify({ data })
+        });
+      },
+      async createRow(tableId, rowId, data) {
+        const path = `/tablesdb/${APPWRITE_CONFIG.databaseId}/tables/${tableId}/rows`;
+        return appwriteRequest(path, {
+          method: 'POST',
+          body: JSON.stringify({ rowId: rowId || generateId(), data })
+        });
+      }
+    };
+
+    // --- Embedded SVG Icons ---
+    const Icons = {
+      Radio: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>,
+      Refresh: ({ spin }) => <svg className={`w-3.5 h-3.5 ${spin ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>,
+      Download: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+      Sun: () => <svg className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41m14.14-14.14l-1.41 1.41"/></svg>,
+      Moon: () => <svg className="w-3.5 h-3.5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>,
+      LogOut: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+      Search: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>,
+      X: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>,
+      Users: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+      Wallet: () => <svg className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a8 8 0 0 1-8 8H5a2 2 0 0 1-2-2V7"/><circle cx="18" cy="14" r="1"/></svg>,
+      TrendingUp: () => <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>,
+      Check: () => <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>,
+      Clock: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+      Edit: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>,
+      Ban: () => <svg className="w-3.5 h-3.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>,
+      Shield: () => <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>,
+      Phone: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
+      Link: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
+      BookOpen: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+      Award: () => <svg className="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>,
+      Plus: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+      Minus: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+      FileCode: () => <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>,
+      ChevronDown: () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>,
+      ChevronRight: () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m9 18 6-6-6-6"/></svg>,
+    };
+
+    // --- Main Application Component ---
+    function AdminApp() {
+      // Theme State (Default dark, saved in localStorage)
+      const [theme, setTheme] = useState(() => localStorage.getItem('sanyu_admin_theme') || 'dark');
+      useEffect(() => {
+        if (theme === 'light') {
+          document.documentElement.classList.add('light');
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+          document.documentElement.classList.remove('light');
+        }
+        localStorage.setItem('sanyu_admin_theme', theme);
+      }, [theme]);
+
+      const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+
+      // Auth State - No cookie checks, permanent in localStorage
+      const [currentUser, setCurrentUser] = useState(() => {
+        const stored = localStorage.getItem('sanyu_admin_user');
+        return stored ? JSON.parse(stored) : ADMIN_ACCOUNT;
+      });
+
+      // Navigation: Exactly 8 sections in specified order
+      const [activeSection, setActiveSection] = useState('dashboard');
+
+      // Database Records
+      const [deposits, setDeposits] = useState([]);
+      const [withdrawals, setWithdrawals] = useState([]);
+      const [customers, setCustomers] = useState([]);
+      const [commissions, setCommissions] = useState([]);
+      const [recipients, setRecipients] = useState([]);
+      const [groupLink, setGroupLink] = useState('');
+      const [ledger, setLedger] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+      const [isRefreshing, setIsRefreshing] = useState(false);
+      const [toast, setToast] = useState(null);
+
+      // Toast notification helper
+      const showToast = (type, text) => {
+        setToast({ type, text, id: Date.now() });
+        setTimeout(() => setToast(null), 4000);
+      };
+
+      // Modal states
+      const [editingWalletCustomer, setEditingWalletCustomer] = useState(null);
+      const [walletType, setWalletType] = useState('add');
+      const [walletAmount, setWalletAmount] = useState('');
+      const [walletReason, setWalletReason] = useState('');
+      const [isSavingWallet, setIsSavingWallet] = useState(false);
+
+      const [editingGroupLink, setEditingGroupLink] = useState(false);
+      const [newGroupLinkVal, setNewGroupLinkVal] = useState('');
+
+      const [newRecipientModal, setNewRecipientModal] = useState(false);
+      const [recipientName, setRecipientName] = useState('');
+      const [recipientPhone, setRecipientPhone] = useState('');
+      const [recipientNetwork, setRecipientNetwork] = useState('MTN');
+
+      const [customerSearch, setCustomerSearch] = useState('');
+      const [customerLocalSearch, setCustomerLocalSearch] = useState('');
+      const [customerFilter, setCustomerFilter] = useState('all');
+
+      const [ledgerSearch, setLedgerSearch] = useState('');
+      const [ledgerLocalSearch, setLedgerLocalSearch] = useState('');
+      const [ledgerTypeFilter, setLedgerTypeFilter] = useState('all');
+
+      const [commissionSearch, setCommissionSearch] = useState('');
+
+      // Master Data Loader - Direct Appwrite TablesDB
+      const loadAllData = useCallback(async (quiet = false) => {
+        if (!quiet) setIsRefreshing(true);
+        try {
+          const [
+            rawProfiles,
+            rawDeposits,
+            rawWithdraws,
+            rawCommissions,
+            rawRecipients,
+            rawSettings,
+            rawLedger,
+            rawClaims,
+          ] = await Promise.all([
+            db.listRows(APPWRITE_CONFIG.tables.PROFILES).catch(() => []),
+            db.listRows(APPWRITE_CONFIG.tables.DEPOSITS).catch(() => []),
+            db.listRows(APPWRITE_CONFIG.tables.WITHDRAWS).catch(() => []),
+            db.listRows(APPWRITE_CONFIG.tables.COMMISSIONS).catch(() => []),
+            db.listRows(APPWRITE_CONFIG.tables.PAYMENT_RECIPIENTS).catch(() => []),
+            db.listRows(APPWRITE_CONFIG.tables.APP_SETTINGS).catch(() => []),
+            db.listRows(APPWRITE_CONFIG.tables.LEDGER).catch(() => []),
+            db.listRows(APPWRITE_CONFIG.tables.DAILY_CLAIMS).catch(() => []),
+          ]);
+
+          // Profile maps for resolving parent usernames
+          const profileMap = new Map();
+          const profileByCode = new Map();
+          const profileByName = new Map();
+          for (const p of rawProfiles) {
+            profileMap.set(p.$id, p);
+            if (p.referralcode) profileByCode.set(p.referralcode.trim().toLowerCase(), p);
+            if (p.username) profileByName.set(p.username.trim().toLowerCase(), p);
+          }
+
+          // Active customer set
+          const todayStr = new Date().toISOString().split('T')[0];
+          const activeUserIds = new Set();
+          for (const c of rawClaims) {
+            if (c.claimdate && c.claimdate >= todayStr) activeUserIds.add(c.userId);
+          }
+
+          // Format Customers: referredby displays username
+          const mappedCustomers = rawProfiles.map(p => {
+            let refUser = 'Direct Registration';
+            if (p.referredby && p.referredby.trim() && p.referredby.trim().toLowerCase() !== 'direct') {
+              const raw = p.referredby.trim();
+              const parent = profileMap.get(raw) || profileByCode.get(raw.toLowerCase()) || profileByName.get(raw.toLowerCase());
+              refUser = parent ? parent.username : raw;
+            }
+            return {
+              ...p,
+              referredByUsername: refUser,
+              hasActivePackage: activeUserIds.has(p.$id)
+            };
+          });
+          setCustomers(mappedCustomers);
+
+          // Deposits & Withdrawals sorted newest first
+          setDeposits(rawDeposits.sort((a,b) => (b.$createdAt || '').localeCompare(a.$createdAt || '')));
+          setWithdrawals(rawWithdraws.sort((a,b) => (b.$createdAt || '').localeCompare(a.$createdAt || '')));
+          setRecipients(rawRecipients);
+          if (rawSettings.length > 0 && rawSettings[0].grouplink) {
+            setGroupLink(rawSettings[0].grouplink);
+            setNewGroupLinkVal(rawSettings[0].grouplink);
+          }
+
+          // Ledger mapped with customer usernames
+          const mappedLedger = rawLedger.map(l => ({
+            ...l,
+            customerUsername: profileMap.get(l.userId)?.username || l.userId
+          })).sort((a,b) => (b.$createdAt || '').localeCompare(a.$createdAt || '')));
+          setLedger(mappedLedger);
+
+          // Commissions: Aggregated by user (1 entry per user who made >= 1 referral)
+          const referrers = new Map();
+          const getOrCreateReferrer = (refId, fallbackProf) => {
+            if (!referrers.has(refId)) {
+              const prof = profileMap.get(refId) || fallbackProf;
+              referrers.set(refId, {
+                userId: refId,
+                username: prof?.username || refId,
+                phone: prof?.phone || '—',
+                code: prof?.referralcode || '—',
+                referredUserIds: new Set(),
+                referredNames: new Set(),
+                profileCommissions: prof?.totalcommissions || 0,
+                commissionDocSum: 0,
+                status: 'credited',
+                latestDate: prof?.$createdAt || new Date().toISOString(),
+              });
+            }
+            return referrers.get(refId);
+          };
+
+          for (const p of rawProfiles) {
+            if (p.referredby && p.referredby.trim() && p.referredby.trim().toLowerCase() !== 'direct') {
+              const raw = p.referredby.trim();
+              const parent = profileMap.get(raw) || profileByCode.get(raw.toLowerCase()) || profileByName.get(raw.toLowerCase());
+              if (parent) {
+                const entry = getOrCreateReferrer(parent.$id, parent);
+                entry.referredUserIds.add(p.$id);
+                entry.referredNames.add(p.username);
+                if (p.$createdAt && p.$createdAt > entry.latestDate) entry.latestDate = p.$createdAt;
+              }
+            }
+          }
+
+          for (const c of rawCommissions) {
+            const refUser = c.referreruserId;
+            if (refUser) {
+              const parent = profileMap.get(refUser);
+              const entry = getOrCreateReferrer(refUser, parent);
+              if (c.referreduserId) {
+                entry.referredUserIds.add(c.referreduserId);
+                const child = profileMap.get(c.referreduserId);
+                entry.referredNames.add(child ? child.username : c.referreduserId);
+              }
+              entry.commissionDocSum += (c.commissionamount || 0);
+              const date = c.creditedat || c.$createdAt;
+              if (date && date > entry.latestDate) entry.latestDate = date;
+            }
+          }
+
+          const aggregatedComm = [];
+          for (const [id, r] of referrers.entries()) {
+            const count = r.referredUserIds.size;
+            if (count > 0) {
+              const totalAmount = Math.max(r.profileCommissions, r.commissionDocSum);
+              aggregatedComm.push({
+                $id: `ref_entry_${id}`,
+                userId: id,
+                referrerUsername: r.username,
+                referrerPhone: r.phone,
+                referrerCode: r.code,
+                referralsCount: count,
+                referredCustomerNames: Array.from(r.referredNames),
+                totalCommissions: totalAmount,
+                status: r.status,
+                latestDate: r.latestDate
+              });
+            }
+          }
+          setCommissions(aggregatedComm.sort((a,b) => b.totalCommissions - a.totalCommissions));
+
+        } catch (err) {
+          console.error('[SANYU SEASON Live Loader]', err);
+          showToast('error', err.message || 'Could not refresh Appwrite data.');
+        } finally {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      }, []);
+
+      useEffect(() => {
+        loadAllData(true);
+      }, [loadAllData]);
+
+      // --- Financial Actions ---
+      // Deposit Approval
+      const handleApproveDeposit = async (deposit) => {
+        try {
+          // 1. Update deposit row in table 6aeda5230028db3b9821
+          await db.updateRow(APPWRITE_CONFIG.tables.DEPOSITS, deposit.$id, {
+            status: 'approved',
+            reviewedat: new Date().toISOString(),
+            reviewedby: ADMIN_ACCOUNT.id
+          });
+          // 2. Credit customer walletbalance in table 6aed9b4e000058a0927d
+          const prof = customers.find(c => c.$id === deposit.userId);
+          const currentBal = prof ? (prof.walletbalance || 0) : 0;
+          const newBal = currentBal + (deposit.amount || 0);
+          if (prof) {
+            await db.updateRow(APPWRITE_CONFIG.tables.PROFILES, prof.$id, {
+              walletbalance: newBal
+            });
+          }
+          // 3. Create immutable ledger entry in table 6aeda35e000a97cee163
+          await db.createRow(APPWRITE_CONFIG.tables.LEDGER, generateId(), {
+            userId: deposit.userId,
+            transactiontype: 'deposit',
+            amount: deposit.amount,
+            balancebefore: currentBal,
+            balanceafter: newBal,
+            refId: deposit.transactionId || deposit.requestreference || deposit.$id,
+            status: 'completed'
+          }).catch(() => {});
+
+          showToast('success', `Deposit of ${formatUGX(deposit.amount)} approved.`);
+          await loadAllData(true);
+        } catch (err) {
+          showToast('error', err.message || 'Failed to approve deposit.');
+        }
+      };
+
+      const handleRejectDeposit = async (deposit) => {
+        try {
+          await db.updateRow(APPWRITE_CONFIG.tables.DEPOSITS, deposit.$id, {
+            status: 'rejected',
+            reviewedat: new Date().toISOString(),
+            reviewedby: ADMIN_ACCOUNT.id
+          });
+          showToast('info', `Deposit ${deposit.$id} marked rejected.`);
+          await loadAllData(true);
+        } catch (err) {
+          showToast('error', err.message || 'Failed to reject deposit.');
+        }
+      };
+
+      // Withdrawal Approval
+      const handleApproveWithdrawal = async (w) => {
+        try {
+          await db.updateRow(APPWRITE_CONFIG.tables.WITHDRAWS, w.$id, {
+            status: 'paid',
+            reviewedat: new Date().toISOString(),
+            paidat: new Date().toISOString()
+          });
+          showToast('success', `Withdrawal of ${formatUGX(w.amount)} marked paid.`);
+          await loadAllData(true);
+        } catch (err) {
+          showToast('error', err.message || 'Failed to approve withdrawal.');
+        }
+      };
+
+      const handleRejectWithdrawal = async (w) => {
+        try {
+          await db.updateRow(APPWRITE_CONFIG.tables.WITHDRAWS, w.$id, {
+            status: 'rejected',
+            reviewedat: new Date().toISOString()
+          });
+          // Refund customer availablebalance
+          const prof = customers.find(c => c.$id === w.userId);
+          if (prof) {
+            const currentAvail = prof.availablebalance || 0;
+            const newAvail = currentAvail + (w.amount || 0);
+            await db.updateRow(APPWRITE_CONFIG.tables.PROFILES, prof.$id, {
+              availablebalance: newAvail
+            });
+            await db.createRow(APPWRITE_CONFIG.tables.LEDGER, generateId(), {
+              userId: prof.$id,
+              transactiontype: 'withdrawal_refund',
+              amount: w.amount,
+              balancebefore: currentAvail,
+              balanceafter: newAvail,
+              refId: w.requestref || w.$id,
+              status: 'completed'
+            }).catch(() => {});
+          }
+          showToast('info', `Withdrawal ${w.$id} rejected and ${formatUGX(w.amount)} refunded to customer available balance.`);
+          await loadAllData(true);
+        } catch (err) {
+          showToast('error', err.message || 'Failed to reject withdrawal.');
+        }
+      };
+
+      // Customer Wallet Adjustment (Accepts ANY value entered)
+      const handleSaveWalletAdjustment = async (e) => {
+        e.preventDefault();
+        if (!editingWalletCustomer) return;
+        const parsed = Number(walletAmount);
+        if (isNaN(parsed) || walletAmount.trim() === '') {
+          showToast('error', 'Please enter a valid amount.');
+          return;
+        }
+        if (!walletReason.trim()) {
+          showToast('error', 'An audit reason is required.');
+          return;
+        }
+        setIsSavingWallet(true);
+        try {
+          const currentBal = editingWalletCustomer.walletbalance || 0;
+          const newBal = walletType === 'add' ? currentBal + parsed : currentBal - parsed;
+
+          // Update customer walletbalance in Appwrite
+          await db.updateRow(APPWRITE_CONFIG.tables.PROFILES, editingWalletCustomer.$id, {
+            walletbalance: newBal
+          });
+
+          // Write ledger entry
+          await db.createRow(APPWRITE_CONFIG.tables.LEDGER, generateId(), {
+            userId: editingWalletCustomer.$id,
+            transactiontype: walletType === 'add' ? 'admin_wallet_credit' : 'admin_wallet_debit',
+            amount: parsed,
+            balancebefore: currentBal,
+            balanceafter: newBal,
+            refId: 'ADJ-' + Date.now().toString(36).toUpperCase(),
+            status: 'completed'
+          }).catch(() => {});
+
+          showToast('success', `Wallet updated to ${formatUGX(newBal)}.`);
+          setEditingWalletCustomer(null);
+          setWalletAmount('');
+          setWalletReason('');
+          await loadAllData(true);
+        } catch (err) {
+          showToast('error', err.message || 'Failed to adjust wallet balance.');
+        } finally {
+          setIsSavingWallet(false);
+        }
+      };
+
+      // Toggle Customer Blocked
+      const handleToggleBlock = async (c) => {
+        const nextState = !c.isblocked;
+        try {
+          await db.updateRow(APPWRITE_CONFIG.tables.PROFILES, c.$id, {
+            isblocked: nextState,
+            status: nextState ? 'blocked' : 'active'
+          });
+          showToast('info', `Customer ${c.username} ${nextState ? 'blocked' : 'unblocked'}.`);
+          await loadAllData(true);
+        } catch (err) {
+          showToast('error', err.message || 'Failed to update customer block status.');
+        }
+      };
+
+      // Save Group Link
+      const handleSaveGroupLink = async () => {
+        try {
+          const settingsRows = await db.listRows(APPWRITE_CONFIG.tables.APP_SETTINGS);
+          if (settingsRows.length > 0) {
+            await db.updateRow(APPWRITE_CONFIG.tables.APP_SETTINGS, settingsRows[0].$id, {
+              grouplink: newGroupLinkVal.trim(),
+              updatedby: ADMIN_ACCOUNT.name
+            });
+          } else {
+            await db.createRow(APPWRITE_CONFIG.tables.APP_SETTINGS, generateId(), {
+              grouplink: newGroupLinkVal.trim(),
+              updatedby: ADMIN_ACCOUNT.name,
+              isactive: true
+            });
+          }
+          setGroupLink(newGroupLinkVal.trim());
+          setEditingGroupLink(false);
+          showToast('success', 'SANYU SEASON group link updated.');
+        } catch (err) {
+          showToast('error', err.message || 'Failed to update group link.');
+        }
+      };
+
+      // Recipient Management
+      const handleToggleRecipient = async (r) => {
+        try {
+          const nextVal = String(r.isactive) === 'true' ? 'false' : 'true';
+          await db.updateRow(APPWRITE_CONFIG.tables.PAYMENT_RECIPIENTS, r.$id, {
+            isactive: nextVal
+          });
+          showToast('info', `Recipient ${r.name} status updated.`);
+          await loadAllData(true);
+        } catch (err) {
+          showToast('error', err.message || 'Failed to update recipient.');
+        }
+      };
+
+      const handleAddRecipient = async (e) => {
+        e.preventDefault();
+        try {
+          await db.createRow(APPWRITE_CONFIG.tables.PAYMENT_RECIPIENTS, generateId(), {
+            name: recipientName.trim(),
+            phonenumber: recipientPhone.trim(),
+            network: recipientNetwork,
+            isactive: 'true'
+          });
+          setNewRecipientModal(false);
+          setRecipientName('');
+          setRecipientPhone('');
+          showToast('success', 'New payment recipient added.');
+          await loadAllData(true);
+        } catch (err) {
+          showToast('error', err.message || 'Failed to create recipient.');
+        }
+      };
+
+      // Download self as admin.html
+      const handleDownloadSelf = () => {
+        const html = document.documentElement.outerHTML;
+        const blob = new Blob(['<!doctype html>\n' + html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'admin.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('success', 'admin.html downloaded.');
+      };
+
+      // Statistics calculations
+      const pendingDepositsCount = deposits.filter(d => d.status === 'pending').length;
+      const pendingWithdrawalsCount = withdrawals.filter(w => w.status === 'pending').length;
+      const approvedDepositsTotal = deposits.filter(d => d.status === 'approved').reduce((sum, d) => sum + (d.amount || 0), 0);
+      const approvedWithdrawalsGross = withdrawals.filter(w => w.status === 'paid').reduce((sum, w) => sum + (w.amount || 0), 0);
+      const totalTaxDeductions = withdrawals.filter(w => w.status === 'paid').reduce((sum, w) => sum + (w.taxamount || Math.round((w.amount || 0) * 0.05)), 0);
+      const approvedWithdrawalsNet = approvedWithdrawalsGross - totalTaxDeductions;
+      const netDifference = approvedDepositsTotal - approvedWithdrawalsGross;
+      const diffIsPositive = netDifference >= 0;
+
+      return (
+        <div className="min-h-screen flex flex-col font-sans">
+          {/* Top Header */}
+          <header className="sticky top-0 z-40 w-full bg-slate-900 border-b border-slate-800 text-slate-100 px-4 lg:px-8 py-3 transition-colors">
+            <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-base font-bold tracking-tight text-white whitespace-nowrap">
+                  SANYU SEASON
+                </span>
+                <span className="text-xs text-slate-400 font-mono hidden sm:inline">
+                  Admin Panel
+                </span>
+              </div>
+
+              {/* Live Sync, Theme, and Download Controls */}
+              <div className="flex items-center gap-2 sm:gap-3 text-xs">
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="hidden sm:inline font-mono">Live Sync</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => loadAllData(false)}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-md transition-colors font-medium disabled:opacity-50 cursor-pointer"
+                  title="Sync with Appwrite TablesDB"
+                >
+                  <Icons.Refresh spin={isRefreshing} />
+                  <span className="hidden md:inline">Sync Now</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadSelf}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-slate-950 font-bold bg-amber-500 hover:bg-amber-400 rounded-md transition-colors shadow-xs cursor-pointer"
+                  title="Download standalone admin.html file to run anywhere"
+                >
+                  <Icons.Download />
+                  <span className="hidden sm:inline">Download admin.html</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-md transition-colors font-medium cursor-pointer"
+                  title="Toggle Light / Dark mode"
+                >
+                  {theme === 'dark' ? <Icons.Sun /> : <Icons.Moon />}
+                </button>
+
+                <div className="hidden lg:flex flex-col items-end text-right pl-2 border-l border-slate-800">
+                  <span className="text-xs font-semibold text-slate-200">{currentUser.name}</span>
+                  <span className="text-[11px] font-mono text-slate-400">{currentUser.phone}</span>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Toast Notification */}
+          {toast && (
+            <div className={`fixed bottom-4 right-4 z-50 px-4 py-2.5 rounded-lg shadow-xl text-xs font-semibold text-white transition-all ${
+              toast.type === 'success' ? 'bg-emerald-600' : toast.type === 'error' ? 'bg-rose-600' : 'bg-slate-800 border border-slate-700'
+            }`}>
+              {toast.text}
+            </div>
+          )}
+
+          {/* Main Layout */}
+          <div className="flex-1 flex flex-col md:flex-row max-w-7xl w-full mx-auto">
+            {/* Navigation Tabs: Exactly 8 sections in specified order */}
+            <aside className="w-full md:w-60 shrink-0 p-4 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950/50">
+              <nav className="flex md:flex-col gap-1.5 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
+                {[
+                  { id: 'dashboard', label: '1. Dashboard' },
+                  { id: 'deposits', label: '2. Deposits', badge: pendingDepositsCount },
+                  { id: 'withdrawals', label: '3. Withdrawals', badge: pendingWithdrawalsCount },
+                  { id: 'customers', label: '4. Customers' },
+                  { id: 'commissions', label: '5. Commissions' },
+                  { id: 'recipients', label: '6. Recipient Number' },
+                  { id: 'groupLink', label: '7. Group Link' },
+                  { id: 'ledger', label: '8. Ledger' },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveSection(item.id)}
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                      activeSection === item.id
+                        ? 'bg-amber-500 text-slate-950 shadow-xs'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    {item.badge > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-2 ${
+                        activeSection === item.id ? 'bg-slate-950 text-amber-400' : 'bg-amber-500 text-slate-950'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </nav>
+            </aside>
+
+            {/* Main Content Area */}
+            <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
+              {isLoading ? (
+                <div className="text-center py-20 text-slate-500 text-xs font-mono">
+                  Loading real Appwrite database records...
+                </div>
+              ) : (
+                <>
+                  {/* SECTION 1: DASHBOARD */}
+                  {activeSection === 'dashboard' && (
+                    <div className="space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">SANYU SEASON Operations Dashboard</h1>
+                          <p className="text-xs text-slate-400 mt-1">
+                            Real-time financial telemetry, customer metrics, and cash flow reconciliation.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleDownloadSelf}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg transition-colors cursor-pointer w-fit"
+                        >
+                          <Icons.Download />
+                          <span>Download Standalone admin.html</span>
+                        </button>
+                      </div>
+
+                      {/* Top Metric Cards */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                          <div className="text-slate-400 text-xs font-medium">Total Customers</div>
+                          <div className="text-2xl font-bold text-white font-mono mt-1">{customers.length}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">Registered Profiles</div>
+                        </div>
+
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                          <div className="text-slate-400 text-xs font-medium">Approved Deposits</div>
+                          <div className="text-2xl font-bold text-emerald-400 font-mono mt-1">{formatUGX(approvedDepositsTotal)}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">Verified Inflow</div>
+                        </div>
+
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                          <div className="text-slate-400 text-xs font-medium">Approved Withdrawals</div>
+                          <div className="text-2xl font-bold text-sky-400 font-mono mt-1">{formatUGX(approvedWithdrawalsGross)}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">Net Payout: {formatUGX(approvedWithdrawalsNet)} (Tax: {formatUGX(totalTaxDeductions)})</div>
+                        </div>
+
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                          <div className="text-slate-400 text-xs font-medium">Net Financial Difference</div>
+                          <div className={`text-2xl font-bold font-mono mt-1 ${diffIsPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {diffIsPositive ? '+' : ''}{formatUGX(netDifference)}
+                          </div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">
+                            {diffIsPositive ? 'Positive Cashflow' : 'Negative Deficit'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pending Attention Alerts */}
+                      {(pendingDepositsCount > 0 || pendingWithdrawalsCount > 0) && (
+                        <div className="flex flex-wrap gap-3">
+                          {pendingDepositsCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveSection('deposits')}
+                              className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-xs font-semibold cursor-pointer"
+                            >
+                              <Icons.Clock />
+                              <span>{pendingDepositsCount} Pending Deposit{pendingDepositsCount > 1 ? 's' : ''} require review</span>
+                            </button>
+                          )}
+                          {pendingWithdrawalsCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveSection('withdrawals')}
+                              className="flex items-center gap-2 px-3 py-2 bg-sky-500/10 border border-sky-500/30 rounded-lg text-sky-300 text-xs font-semibold cursor-pointer"
+                            >
+                              <Icons.Clock />
+                              <span>{pendingWithdrawalsCount} Pending Withdrawal{pendingWithdrawalsCount > 1 ? 's' : ''} awaiting review</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SECTION 2: DEPOSITS */}
+                  {activeSection === 'deposits' && (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Deposit Requests</h1>
+                          <p className="text-xs text-slate-400 mt-1">Appwrite table 6aeda5230028db3b9821</p>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
+                        <table className="w-full text-left text-xs text-slate-200">
+                          <thead className="bg-slate-950/70 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase">
+                            <tr>
+                              <th className="py-3 px-4">Amount</th>
+                              <th className="py-3 px-4">Payer Phone</th>
+                              <th className="py-3 px-4">Network</th>
+                              <th className="py-3 px-4">Reference</th>
+                              <th className="py-3 px-4">Status</th>
+                              <th className="py-3 px-4">Submitted</th>
+                              <th className="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60 font-mono">
+                            {deposits.map(d => (
+                              <tr key={d.$id} className="hover:bg-slate-800/40">
+                                <td className="py-3 px-4 font-bold text-emerald-400 text-sm font-sans">{formatUGX(d.amount)}</td>
+                                <td className="py-3 px-4">{d.payerphone || '—'}</td>
+                                <td className="py-3 px-4 font-sans">{d.network || '—'}</td>
+                                <td className="py-3 px-4 text-[11px] text-slate-400">{d.requestreference || d.transactionId || d.$id}</td>
+                                <td className="py-3 px-4 font-sans">
+                                  <span className={`px-2 py-0.5 rounded-sm text-[11px] font-semibold capitalize ${
+                                    d.status === 'approved' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/60' :
+                                    d.status === 'rejected' ? 'bg-rose-950 text-rose-300 border border-rose-800/60' :
+                                    'bg-amber-950 text-amber-300 border border-amber-800/60'
+                                  }`}>{d.status}</span>
+                                </td>
+                                <td className="py-3 px-4 text-[11px] text-slate-400 font-sans">{formatDate(d.submittedat || d.$createdAt)}</td>
+                                <td className="py-3 px-4 text-right font-sans">
+                                  {d.status === 'pending' && (
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleApproveDeposit(d)}
+                                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md text-xs font-semibold cursor-pointer"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRejectDeposit(d)}
+                                        className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800 rounded-md text-xs font-semibold cursor-pointer"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SECTION 3: WITHDRAWALS */}
+                  {activeSection === 'withdrawals' && (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Withdrawal Requests</h1>
+                          <p className="text-xs text-slate-400 mt-1">Appwrite table 6aeda824000112246a87</p>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
+                        <table className="w-full text-left text-xs text-slate-200">
+                          <thead className="bg-slate-950/70 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase">
+                            <tr>
+                              <th className="py-3 px-4">Gross Amount</th>
+                              <th className="py-3 px-4">Tax (5%)</th>
+                              <th className="py-3 px-4">Net Payout</th>
+                              <th className="py-3 px-4">Phone</th>
+                              <th className="py-3 px-4">Status</th>
+                              <th className="py-3 px-4">Requested</th>
+                              <th className="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60 font-mono">
+                            {withdrawals.map(w => (
+                              <tr key={w.$id} className="hover:bg-slate-800/40">
+                                <td className="py-3 px-4 font-bold text-white">{formatUGX(w.amount)}</td>
+                                <td className="py-3 px-4 text-rose-400 font-sans">-{formatUGX(w.taxamount || Math.round((w.amount||0)*0.05))}</td>
+                                <td className="py-3 px-4 text-emerald-400 font-bold">{formatUGX(w.netamount || ((w.amount||0) - Math.round((w.amount||0)*0.05)))}</td>
+                                <td className="py-3 px-4">{w.phonenumber || '—'}</td>
+                                <td className="py-3 px-4 font-sans">
+                                  <span className={`px-2 py-0.5 rounded-sm text-[11px] font-semibold capitalize ${
+                                    w.status === 'paid' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/60' :
+                                    w.status === 'rejected' ? 'bg-rose-950 text-rose-300 border border-rose-800/60' :
+                                    'bg-amber-950 text-amber-300 border border-amber-800/60'
+                                  }`}>{w.status}</span>
+                                </td>
+                                <td className="py-3 px-4 text-[11px] text-slate-400 font-sans">{formatDate(w.requestedat || w.$createdAt)}</td>
+                                <td className="py-3 px-4 text-right font-sans">
+                                  {w.status === 'pending' && (
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleApproveWithdrawal(w)}
+                                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md text-xs font-semibold cursor-pointer"
+                                      >
+                                        Mark Paid
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRejectWithdrawal(w)}
+                                        className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800 rounded-md text-xs font-semibold cursor-pointer"
+                                      >
+                                        Reject & Refund
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SECTION 4: CUSTOMERS */}
+                  {activeSection === 'customers' && (
+                    <div className="space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Customer Accounts</h1>
+                          <p className="text-xs text-slate-400 mt-1">Appwrite table 6aed9b4e000058a0927d</p>
+                        </div>
+
+                        {/* Search Bar with Search Button */}
+                        <form
+                          onSubmit={(e) => { e.preventDefault(); setCustomerSearch(customerLocalSearch); }}
+                          className="flex items-center gap-2 w-full sm:w-auto"
+                        >
+                          <div className="relative flex-1 sm:w-64">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><Icons.Search /></span>
+                            <input
+                              type="text"
+                              value={customerLocalSearch}
+                              onChange={(e) => setCustomerLocalSearch(e.target.value)}
+                              placeholder="Search username, phone..."
+                              className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-amber-500"
+                            />
+                            {customerLocalSearch && (
+                              <button
+                                type="button"
+                                onClick={() => { setCustomerLocalSearch(''); setCustomerSearch(''); }}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                              >
+                                <Icons.X />
+                              </button>
+                            )}
+                          </div>
+                          <button
+                            type="submit"
+                            className="px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg transition-colors cursor-pointer"
+                          >
+                            Search
+                          </button>
+                        </form>
+                      </div>
+
+                      {/* Customer Cards Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {customers
+                          .filter(c => {
+                            if (!customerSearch.trim()) return true;
+                            const q = customerSearch.trim().toLowerCase();
+                            return (c.username && c.username.toLowerCase().includes(q)) ||
+                                   (c.phone && c.phone.toLowerCase().includes(q)) ||
+                                   (c.referralcode && c.referralcode.toLowerCase().includes(q));
+                          })
+                          .map(c => (
+                            <div key={c.$id} className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-base font-bold text-white">{c.username}</span>
+                                    {c.hasActivePackage && (
+                                      <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded-sm border border-emerald-800">
+                                        Active Package
+                                      </span>
+                                    )}
+                                    {c.isblocked && (
+                                      <span className="text-[10px] font-semibold text-rose-300 bg-rose-950 px-1.5 py-0.5 rounded-sm border border-rose-800">
+                                        Blocked
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-slate-400 mt-1">
+                                    <span>Referred by: <strong className="text-amber-400">{c.referredByUsername}</strong></span>
+                                    <span className="mx-1.5">·</span>
+                                    <span className="font-mono">{c.phone}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right text-[11px] text-slate-400">
+                                  <div>Code: <strong className="font-mono text-slate-200">{c.referralcode || '—'}</strong></div>
+                                  <div className="text-[10px] mt-0.5">Seen {formatTimeAgo(c.lastseenat)}</div>
+                                </div>
+                              </div>
+
+                              {/* Balances */}
+                              <div className="grid grid-cols-2 gap-3 p-3 bg-slate-950 rounded-lg border border-slate-800/80">
+                                <div>
+                                  <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                                    <Icons.Wallet /> <span>Wallet Balance</span>
+                                  </div>
+                                  <div className="text-sm font-bold text-amber-400 font-mono mt-0.5">
+                                    {formatUGX(c.walletbalance)}
+                                  </div>
+                                </div>
+                                <div className="border-l border-slate-800 pl-3">
+                                  <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                                    <Icons.TrendingUp /> <span>Available Balance</span>
+                                  </div>
+                                  <div className="text-sm font-bold text-emerald-400 font-mono mt-0.5">
+                                    {formatUGX(c.availablebalance)}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleBlock(c)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border ${
+                                    c.isblocked
+                                      ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                                      : 'bg-rose-950/60 text-rose-300 border-rose-800'
+                                  }`}
+                                >
+                                  {c.isblocked ? 'Unblock' : 'Block Account'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingWalletCustomer(c);
+                                    setWalletType('add');
+                                    setWalletAmount('');
+                                    setWalletReason('');
+                                  }}
+                                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1"
+                                >
+                                  <Icons.Edit />
+                                  <span>Edit Wallet Balance</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SECTION 5: COMMISSIONS */}
+                  {activeSection === 'commissions' && (
+                    <div className="space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Referral Commissions Ledger</h1>
+                          <p className="text-xs text-slate-400 mt-1">
+                            Each user with referrals receives one consolidated ledger entry giving their referral count and total commissions.
+                          </p>
+                        </div>
+                        <div className="relative w-full sm:w-64">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><Icons.Search /></span>
+                          <input
+                            type="text"
+                            value={commissionSearch}
+                            onChange={(e) => setCommissionSearch(e.target.value)}
+                            placeholder="Search referrer username..."
+                            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-amber-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Summary Strip */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                          <div className="text-slate-400 text-xs">Active Referrers</div>
+                          <div className="text-2xl font-bold text-white font-mono mt-1">{commissions.length}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">Users who made referrals</div>
+                        </div>
+
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                          <div className="text-slate-400 text-xs">Total Referrals Generated</div>
+                          <div className="text-2xl font-bold text-sky-400 font-mono mt-1">
+                            {commissions.reduce((s, c) => s + (c.referralsCount || 1), 0)}
+                          </div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">Referred Customers</div>
+                        </div>
+
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                          <div className="text-slate-400 text-xs">Total Commission Payouts</div>
+                          <div className="text-2xl font-bold text-emerald-400 font-mono mt-1">
+                            {formatUGX(commissions.reduce((s, c) => s + (c.totalCommissions || 0), 0))}
+                          </div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">Cumulative Rewards</div>
+                        </div>
+                      </div>
+
+                      {/* Table: 1 Ledger Entry Per User */}
+                      <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
+                        <table className="w-full text-left text-xs text-slate-200">
+                          <thead className="bg-slate-950/70 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase">
+                            <tr>
+                              <th className="py-3 px-4">Referrer User</th>
+                              <th className="py-3 px-4">Referral Code</th>
+                              <th className="py-3 px-4">Referrals Count</th>
+                              <th className="py-3 px-4">Referred Customers</th>
+                              <th className="py-3 px-4">Total Commissions</th>
+                              <th className="py-3 px-4">Status</th>
+                              <th className="py-3 px-4">Latest Date</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60 font-mono">
+                            {commissions
+                              .filter(c => {
+                                if (!commissionSearch.trim()) return true;
+                                const q = commissionSearch.trim().toLowerCase();
+                                return (c.referrerUsername && c.referrerUsername.toLowerCase().includes(q)) ||
+                                       (c.referrerCode && c.referrerCode.toLowerCase().includes(q));
+                              })
+                              .map(c => (
+                                <tr key={c.$id} className="hover:bg-slate-800/40">
+                                  <td className="py-3 px-4 font-sans font-bold text-white text-sm">
+                                    <div>{c.referrerUsername}</div>
+                                    <div className="text-[11px] font-normal font-mono text-slate-400">{c.referrerPhone}</div>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-400 font-semibold">
+                                      {c.referrerCode}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-sky-950 text-sky-300 border border-sky-800">
+                                      <Icons.Users />
+                                      <span>{c.referralsCount} {c.referralsCount === 1 ? 'Referral' : 'Referrals'}</span>
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 font-sans">
+                                    <div className="flex flex-wrap gap-1 max-w-xs">
+                                      {(c.referredCustomerNames || []).map((name, i) => (
+                                        <span key={i} className="px-2 py-0.5 rounded bg-slate-800 text-[11px] text-slate-200 border border-slate-700">
+                                          {name}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-4 text-emerald-400 font-bold text-sm">
+                                    +{formatUGX(c.totalCommissions)}
+                                  </td>
+                                  <td className="py-3 px-4 font-sans">
+                                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800 capitalize">
+                                      {c.status || 'credited'}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-[11px] text-slate-400 font-sans">{formatDate(c.latestDate)}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SECTION 6: RECIPIENT NUMBER */}
+                  {activeSection === 'recipients' && (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Deposit Payment Recipients</h1>
+                          <p className="text-xs text-slate-400 mt-1">Appwrite table 6aeda798000bcf4c2e36. Displayed on customer deposit page.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setNewRecipientModal(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs cursor-pointer"
+                        >
+                          <Icons.Plus />
+                          <span>Add Recipient</span>
+                        </button>
+                      </div>
+
+                      <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
+                        <table className="w-full text-left text-xs text-slate-200">
+                          <thead className="bg-slate-950/70 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase">
+                            <tr>
+                              <th className="py-3 px-4">Recipient Name</th>
+                              <th className="py-3 px-4">Phone Number</th>
+                              <th className="py-3 px-4">Network</th>
+                              <th className="py-3 px-4">Status</th>
+                              <th className="py-3 px-4 text-right">Toggle Active</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60 font-mono">
+                            {recipients.map(r => {
+                              const isActive = String(r.isactive) === 'true';
+                              return (
+                                <tr key={r.$id} className="hover:bg-slate-800/40">
+                                  <td className="py-3 px-4 font-bold text-white font-sans">{r.name}</td>
+                                  <td className="py-3 px-4 text-amber-400 text-sm">{r.phonenumber}</td>
+                                  <td className="py-3 px-4 font-sans">{r.network}</td>
+                                  <td className="py-3 px-4 font-sans">
+                                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                                      isActive ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'
+                                    }`}>
+                                      {isActive ? 'Active' : 'Inactive'}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-sans">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleRecipient(r)}
+                                      className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer border ${
+                                        isActive ? 'bg-rose-950 text-rose-300 border-rose-800' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                      }`}
+                                    >
+                                      {isActive ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SECTION 7: GROUP LINK */}
+                  {activeSection === 'groupLink' && (
+                    <div className="space-y-6 max-w-2xl">
+                      <div className="pb-4 border-b border-slate-800">
+                        <h1 className="text-xl font-bold text-white tracking-tight">Community Group Link</h1>
+                        <p className="text-xs text-slate-400 mt-1">Appwrite table 6aedadf50008f6c00e0d</p>
+                      </div>
+
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                            Official SANYU SEASON Telegram / WhatsApp Group Link
+                          </label>
+                          <input
+                            type="url"
+                            value={newGroupLinkVal}
+                            onChange={(e) => setNewGroupLinkVal(e.target.value)}
+                            placeholder="https://t.me/... or https://chat.whatsapp.com/..."
+                            className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:border-amber-500 font-mono"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2">
+                          <span className="text-xs text-slate-400">Current link: <strong className="text-amber-400">{groupLink || 'None'}</strong></span>
+                          <button
+                            type="button"
+                            onClick={handleSaveGroupLink}
+                            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs cursor-pointer shadow-xs"
+                          >
+                            Save Group Link
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SECTION 8: LEDGER */}
+                  {activeSection === 'ledger' && (
+                    <div className="space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Financial Audit Ledger</h1>
+                          <p className="text-xs text-slate-400 mt-1">Immutable transaction ledger from Appwrite table 6aeda35e000a97cee163</p>
+                        </div>
+
+                        {/* Search and Filters */}
+                        <form
+                          onSubmit={(e) => { e.preventDefault(); setLedgerSearch(ledgerLocalSearch); }}
+                          className="flex items-center gap-2 w-full sm:w-auto"
+                        >
+                          <div className="relative flex-1 sm:w-64">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><Icons.Search /></span>
+                            <input
+                              type="text"
+                              value={ledgerLocalSearch}
+                              onChange={(e) => setLedgerLocalSearch(e.target.value)}
+                              placeholder="Search username, ref ID..."
+                              className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-amber-500"
+                            />
+                            {ledgerLocalSearch && (
+                              <button
+                                type="button"
+                                onClick={() => { setLedgerLocalSearch(''); setLedgerSearch(''); }}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                              >
+                                <Icons.X />
+                              </button>
+                            )}
+                          </div>
+                          <button
+                            type="submit"
+                            className="px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg transition-colors cursor-pointer"
+                          >
+                            Search
+                          </button>
+                        </form>
+                      </div>
+
+                      <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
+                        <table className="w-full text-left text-xs text-slate-200">
+                          <thead className="bg-slate-950/70 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase">
+                            <tr>
+                              <th className="py-3 px-4">Transaction Type</th>
+                              <th className="py-3 px-4">Customer</th>
+                              <th className="py-3 px-4">Balance Before</th>
+                              <th className="py-3 px-4">Amount</th>
+                              <th className="py-3 px-4">Balance After</th>
+                              <th className="py-3 px-4">Reference</th>
+                              <th className="py-3 px-4">Timestamp</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60 font-mono">
+                            {ledger
+                              .filter(l => {
+                                if (!ledgerSearch.trim()) return true;
+                                const q = ledgerSearch.trim().toLowerCase();
+                                return (l.customerUsername && l.customerUsername.toLowerCase().includes(q)) ||
+                                       (l.refId && l.refId.toLowerCase().includes(q)) ||
+                                       (l.transactiontype && l.transactiontype.toLowerCase().includes(q));
+                              })
+                              .map(l => (
+                                <tr key={l.$id} className="hover:bg-slate-800/40">
+                                  <td className="py-3 px-4 font-sans">
+                                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-800 border border-slate-700 capitalize">
+                                      {(l.transactiontype || 'transaction').replace('_', ' ')}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 font-sans font-bold text-white">{l.customerUsername || l.userId}</td>
+                                  <td className="py-3 px-4 text-slate-400">{formatUGX(l.balancebefore)}</td>
+                                  <td className="py-3 px-4 font-bold text-emerald-400">+{formatUGX(l.amount)}</td>
+                                  <td className="py-3 px-4 font-bold text-white">{formatUGX(l.balanceafter)}</td>
+                                  <td className="py-3 px-4 text-[11px] text-slate-400">{l.refId || l.$id}</td>
+                                  <td className="py-3 px-4 text-[11px] text-slate-400 font-sans">{formatDate(l.$createdAt)}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </main>
+          </div>
+
+          {/* Wallet Adjustment Modal (Accepts ANY value entered) */}
+          {editingWalletCustomer && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
+              <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-5 text-slate-100 shadow-2xl">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <h3 className="text-base font-bold text-white">
+                    Adjust Wallet Balance: <span className="text-amber-400">{editingWalletCustomer.username}</span>
+                  </h3>
+                  <button type="button" onClick={() => setEditingWalletCustomer(null)} className="text-slate-400 hover:text-white">
+                    <Icons.X />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveWalletAdjustment} className="space-y-4 mt-4">
+                  <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs">
+                    <span className="text-slate-400">Current Wallet Balance: </span>
+                    <strong className="text-amber-400 font-mono">{formatUGX(editingWalletCustomer.walletbalance)}</strong>
+                  </div>
+
+                  {/* Add / Subtract Type Selection */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setWalletType('add')}
+                      className={`flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg border cursor-pointer ${
+                        walletType === 'add' ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-800 text-slate-300 border-slate-700'
+                      }`}
+                    >
+                      <Icons.Plus /> <span>Add Credit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWalletType('subtract')}
+                      className={`flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg border cursor-pointer ${
+                        walletType === 'subtract' ? 'bg-rose-600 text-white border-rose-500' : 'bg-slate-800 text-slate-300 border-slate-700'
+                      }`}
+                    >
+                      <Icons.Minus /> <span>Subtract Debit</span>
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      Adjustment Amount (UGX) <span className="text-rose-400">* Accepts any value</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={walletAmount}
+                      onChange={(e) => setWalletAmount(e.target.value)}
+                      placeholder="Enter any amount"
+                      required
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:border-amber-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      Audit Reason <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={walletReason}
+                      onChange={(e) => setWalletReason(e.target.value)}
+                      placeholder="e.g. Authorized balance adjustment"
+                      required
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs flex justify-between items-center">
+                    <span className="text-slate-400">Resulting Balance:</span>
+                    <strong className="text-amber-400 font-mono text-sm">
+                      {formatUGX(
+                        walletAmount && !isNaN(Number(walletAmount))
+                          ? (walletType === 'add'
+                              ? (editingWalletCustomer.walletbalance || 0) + Number(walletAmount)
+                              : (editingWalletCustomer.walletbalance || 0) - Number(walletAmount))
+                          : (editingWalletCustomer.walletbalance || 0)
+                      )}
+                    </strong>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setEditingWalletCustomer(null)}
+                      className="px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 rounded-lg cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingWallet || !walletAmount.trim() || isNaN(Number(walletAmount)) || !walletReason.trim()}
+                      className="px-4 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {isSavingWallet ? 'Saving...' : 'Save New Balance'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Add Recipient Modal */}
+          {newRecipientModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
+              <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-5 text-slate-100 shadow-2xl">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <h3 className="text-base font-bold text-white">Add New Deposit Payment Recipient</h3>
+                  <button type="button" onClick={() => setNewRecipientModal(false)} className="text-slate-400 hover:text-white">
+                    <Icons.X />
+                  </button>
+                </div>
+
+                <form onSubmit={handleAddRecipient} className="space-y-4 mt-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Recipient Name</label>
+                    <input
+                      type="text"
+                      value={recipientName}
+                      onChange={(e) => setRecipientName(e.target.value)}
+                      placeholder="e.g. SANYU TREASURY 1"
+                      required
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-hidden focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Phone Number</label>
+                    <input
+                      type="text"
+                      value={recipientPhone}
+                      onChange={(e) => setRecipientPhone(e.target.value)}
+                      placeholder="e.g. +256700000000"
+                      required
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-hidden focus:border-amber-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Network Provider</label>
+                    <select
+                      value={recipientNetwork}
+                      onChange={(e) => setRecipientNetwork(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-hidden focus:border-amber-500"
+                    >
+                      <option value="MTN">MTN Uganda</option>
+                      <option value="AIRTEL">Airtel Uganda</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setNewRecipientModal(false)}
+                      className="px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 rounded-lg cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg cursor-pointer"
+                    >
+                      Add Recipient
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<AdminApp />);
+  </script>
+</body>
+</html>
